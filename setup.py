@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup_kwargs = dict(
     name='sentry_falcon',
-    version='0.1.0',
+    version='0.5.0',
     description='Falcon web framework integration for the Sentry SDK',
     packages=['sentry_falcon'],
     author='Jacob Magnusson',
@@ -23,7 +23,7 @@ setup_kwargs = dict(
         },
     },
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',

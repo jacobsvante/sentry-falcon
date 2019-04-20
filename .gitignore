@@ -1,5 +1,7 @@
 /.coverage
 /.tox
+/build
+/dist
 /venv
 /*.egg-info
 *.sublime-*
