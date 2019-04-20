@@ -1,0 +1,6 @@
+/.coverage
+/.tox
+/venv
+/*.egg-info
+*.sublime-*
+*.pyc
