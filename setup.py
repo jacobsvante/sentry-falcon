@@ -1,9 +1,14 @@
 from setuptools import setup
 
+with open('README.md') as f:
+    long_description = f.read()
+
 setup_kwargs = dict(
     name='sentry_falcon',
-    version='0.5.0',
+    version='0.5.1',
     description='Falcon web framework integration for the Sentry SDK',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     packages=['sentry_falcon'],
     author='Jacob Magnusson',
     author_email='m@jacobian.se',
