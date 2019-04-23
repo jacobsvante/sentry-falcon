@@ -1,5 +1,7 @@
 # sentry-falcon
 
+NOTE: This package has now been merged into `sentry-sdk` as of version `0.7.11`, so there's no longer any need to use this package unless you're using an older `sentry-sdk` version. [The Falcon integration documentation can be found here](https://docs.sentry.io/platforms/python/falcon/).
+
 [![Travis CI build status (Linux)](https://travis-ci.org/jmagnusson/sentry-falcon.svg?branch=master)](https://travis-ci.org/jmagnusson/sentry-falcon)
 [![PyPI version](https://img.shields.io/pypi/v/sentry-falcon.svg)](https://pypi.python.org/pypi/sentry-falcon/)
 [![License](https://img.shields.io/pypi/l/sentry-falcon.svg)](https://pypi.python.org/pypi/sentry-falcon/)

@@ -221,8 +221,7 @@ def test_500(sentry_init, capture_events):
     assert response.json == {"message": "Sentry error: %s" % event["event_id"]}
 
 
-# NOTE: Commented out until 0.7.11 has been released, which fixes the
-#       exception ordering (see https://github.com/getsentry/sentry-python/commit/5df96a290e3e5be96deaae2ff34857bade70afae for more info)
+# NOTE: This is commented out as there's a bug in exception ordering before version 0.7.11. However, as this Falcon integration is included in that version there's no need to run this test. Fixed in commit https://github.com/getsentry/sentry-python/commit/5df96a290e3e5be96deaae2ff34857bade70afae.
 # def test_error_in_errorhandler(sentry_init, capture_events):
 #     sentry_init(integrations=[FalconIntegration()])
 
