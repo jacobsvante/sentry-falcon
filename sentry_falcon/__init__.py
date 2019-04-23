@@ -1,27 +1,25 @@
-from typing import Any, Callable, Dict
+from __future__ import absolute_import
 
-import falcon
-import falcon.api_helpers
-import sentry_sdk.integrations
+import falcon  # type: ignore
+import falcon.api_helpers  # type: ignore
 from sentry_sdk.hub import Hub
+from sentry_sdk.integrations import Integration
 from sentry_sdk.integrations._wsgi_common import RequestExtractor
 from sentry_sdk.integrations.wsgi import SentryWsgiMiddleware
 from sentry_sdk.utils import capture_internal_exceptions, event_from_exception
 
+if False:
+    from typing import Any
+    from typing import Callable
+    from typing import Dict
+
 
 class FalconRequestExtractor(RequestExtractor):
-
     def env(self):
         return self.request.env
 
     def cookies(self):
         return self.request.cookies
-
-    def raw_data(self):
-        # As request data can only read once we won't make this available
-        # to Sentry.
-        # TODO: Figure out if there's a way to support this
-        return None
 
     def form(self):
         return None  # No such concept in Falcon
@@ -29,10 +27,26 @@ class FalconRequestExtractor(RequestExtractor):
     def files(self):
         return None  # No such concept in Falcon
 
+    def raw_data(self):
+        # As request data can only be read once we won't make this available
+        # to Sentry. Just send back a dummy string in case there was a
+        # content length.
+        # TODO(jmagnusson): Figure out if there's a way to support this
+        content_length = self.content_length()
+        if content_length > 0:
+            return "[REQUEST_CONTAINING_RAW_DATA]"
+        else:
+            return None
+
     def json(self):
-        # We don't touch falcon.Request.media as that can raise an exception
-        # on non-JSON requests.
-        return self.request._media
+        try:
+            return self.request.media
+        except falcon.errors.HTTPBadRequest:
+            # NOTE(jmagnusson): We return `falcon.Request._media` here because
+            # falcon 1.4 doesn't do proper type checking in
+            # `falcon.Request.media`. This has been fixed in 2.0.
+            # Relevant code: https://github.com/falconry/falcon/blob/1.4.1/falcon/request.py#L953
+            return self.request._media
 
 
 class SentryFalconMiddleware(object):
@@ -45,12 +59,11 @@ class SentryFalconMiddleware(object):
             return
 
         with hub.configure_scope() as scope:
-            scope.add_event_processor(
-                _make_request_event_processor(req, integration)
-            )
+            scope._name = "falcon"
+            scope.add_event_processor(_make_request_event_processor(req, integration))
 
 
-class FalconIntegration(sentry_sdk.integrations.Integration):
+class FalconIntegration(Integration):
     identifier = "falcon"
 
     transaction_style = None
@@ -85,11 +98,8 @@ def _patch_wsgi_app():
         sentry_wrapped = SentryWsgiMiddleware(
             lambda envi, start_resp: original_wsgi_app(self, envi, start_resp)
         )
-        with hub.push_scope() as scope:
-            scope._name = "falcon"
-            resp = sentry_wrapped(env, start_response)
 
-        return resp
+        return sentry_wrapped(env, start_response)
 
     falcon.API.__call__ = sentry_patched_wsgi_app
 
@@ -98,8 +108,8 @@ def _patch_handle_exception():
     original_handle_exception = falcon.API._handle_exception
 
     def sentry_patched_handle_exception(self, *args):
-        # NOTE: falcon 2.0 changed falcon.API._handle_exception method
-        # signature from `(ex, req, resp, params)` to
+        # NOTE(jmagnusson): falcon 2.0 changed falcon.API._handle_exception
+        # method signature from `(ex, req, resp, params)` to
         # `(req, resp, ex, params)`
         if isinstance(args[0], Exception):
             ex = args[0]
@@ -111,7 +121,7 @@ def _patch_handle_exception():
         hub = Hub.current
         integration = hub.get_integration(FalconIntegration)
 
-        if integration is not None and not was_handled:
+        if integration is not None and not _is_falcon_http_error(ex):
             event, hint = event_from_exception(
                 ex,
                 client_options=hub.client.options,
@@ -128,20 +138,19 @@ def _patch_prepare_middleware():
     original_prepare_middleware = falcon.api_helpers.prepare_middleware
 
     def sentry_patched_prepare_middleware(
-        middleware=None,
-        independent_middleware=False
+        middleware=None, independent_middleware=False
     ):
         hub = Hub.current
         integration = hub.get_integration(FalconIntegration)
         if integration is not None:
             middleware = [SentryFalconMiddleware()] + (middleware or [])
-        return original_prepare_middleware(
-            middleware,
-            independent_middleware,
-        )
+        return original_prepare_middleware(middleware, independent_middleware)
 
-    falcon.api_helpers.prepare_middleware = \
-        sentry_patched_prepare_middleware
+    falcon.api_helpers.prepare_middleware = sentry_patched_prepare_middleware
+
+
+def _is_falcon_http_error(ex):
+    return isinstance(ex, (falcon.HTTPError, falcon.http_status.HTTPStatus))
 
 
 def _make_request_event_processor(req, integration):

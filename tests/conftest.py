@@ -2,9 +2,8 @@ import json
 import os
 import subprocess
 
-import falcon
-import falcon.testing
 import pytest
+
 import sentry_sdk
 from sentry_sdk._compat import reraise, string_types
 from sentry_sdk.transport import Transport
@@ -127,44 +126,6 @@ def capture_events(monkeypatch):
 
 
 @pytest.fixture
-def capture_events_forksafe(monkeypatch):
-    def inner():
-        events_r, events_w = os.pipe()
-        events_r = os.fdopen(events_r, "rb", 0)
-        events_w = os.fdopen(events_w, "wb", 0)
-
-        test_client = sentry_sdk.Hub.current.client
-
-        old_capture_event = test_client.transport.capture_event
-
-        def append(event):
-            events_w.write(json.dumps(event).encode("utf-8"))
-            events_w.write(b"\n")
-            return old_capture_event(event)
-
-        def flush(timeout=None, callback=None):
-            events_w.write(b"flush\n")
-
-        monkeypatch.setattr(test_client.transport, "capture_event", append)
-        monkeypatch.setattr(test_client, "flush", flush)
-
-        return EventStreamReader(events_r)
-
-    return inner
-
-
-class EventStreamReader(object):
-    def __init__(self, file):
-        self.file = file
-
-    def read_event(self):
-        return json.loads(self.file.readline().decode("utf-8"))
-
-    def read_flush(self):
-        assert self.file.readline() == b"flush\n"
-
-
-@pytest.fixture
 def capture_exceptions(monkeypatch):
     def inner():
         errors = set()
@@ -180,27 +141,4 @@ def capture_exceptions(monkeypatch):
         monkeypatch.setattr(sentry_sdk.Hub, "capture_event", capture_event)
         return errors
 
-    return inner
-
-
-@pytest.fixture
-def make_app(sentry_init):
-    def inner():
-        class MessageResource:
-            def on_get(self, req, resp):
-                sentry_sdk.capture_message('hi')
-                resp.media = 'hi'
-
-        app = falcon.API()
-        app.add_route('/message', MessageResource())
-
-        return app
-    return inner
-
-
-@pytest.fixture
-def make_client(make_app):
-    def inner():
-        app = make_app()
-        return falcon.testing.TestClient(app)
     return inner

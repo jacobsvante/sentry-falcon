@@ -5,7 +5,7 @@ with open('README.md') as f:
 
 setup_kwargs = dict(
     name='sentry_falcon',
-    version='0.5.1',
+    version='0.6.0',
     description='Falcon web framework integration for the Sentry SDK',
     long_description=long_description,
     long_description_content_type='text/markdown',
