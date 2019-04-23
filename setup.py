@@ -1,7 +1,10 @@
 from setuptools import setup
 
-with open('README.md') as f:
-    long_description = f.read()
+try:
+    with open('README.md') as f:
+        long_description = f.read()
+except IOError:
+    long_description = ''
 
 setup_kwargs = dict(
     name='sentry_falcon',
